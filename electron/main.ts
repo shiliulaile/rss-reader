@@ -255,11 +255,17 @@ function registerIpcHandlers() {
       $('section, aside, nav, div[class*=related], div[class*=recommend], div[class*=hot], div[class*=read]').each(function(this: any) {
         for (const k of kw) { if ($(this).text().includes(k)) { $(this).remove(); break } }
       })
-      // 2) 去掉末尾的"原文：..."链接（与自带按钮重复）
+      // 2) 去掉原文链接后面的推荐内容（如"分享文章""你可能还想看"等）
+      //    先找到"原文"、"原文链接"等段落，移除其后面的兄弟元素
+      let foundOriginal = false
       $('p, div').each(function(this: any) {
         const t = $(this).text().trim()
-        if (/^原文[\s:：]/.test(t) || /^原文链接[\s:：]/.test(t) || /^本文链接[\s:：]/.test(t)) {
-          $(this).remove()
+        if (!foundOriginal && (/^原文[\s:：]/.test(t) || /^原文链接[\s:：]/.test(t) || /^本文链接[\s:：]/.test(t))) {
+          foundOriginal = true
+          return // 保留这个元素，标记已找到
+        }
+        if (foundOriginal) {
+          $(this).remove() // 原文后面的内容全部移除
         }
       })
       // 3) 去掉空的 hr（分割线）
