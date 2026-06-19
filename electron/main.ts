@@ -244,17 +244,26 @@ function registerIpcHandlers() {
     return article
   })
 
-  /** 去除提取内容中的相关推荐/热门阅读等干扰区块 */
+  /** 去除提取内容中的相关推荐/热门/原文链接等干扰 */
   function cleanContent(html: string): string {
     if (!html) return html
     try {
       const cheerio = require('cheerio')
       const $ = cheerio.load(html)
-      const keywords = ['相关推荐','相关文章','热门阅读','推荐阅读','猜你喜欢','相关新闻','RELATED','Recommended','热门文章','编辑推荐','相关资讯','热点推荐','大家还在看','延伸阅读']
-      $('section, aside, nav, div[class*=related], div[class*=recommend], div[class*=hot], div[class*=read], div[class*=topic]').each(function(this: any) {
-        const text = $(this).text()
-        for (const kw of keywords) { if (text.includes(kw)) { $(this).remove(); break } }
+      // 1) 去掉包含推荐/相关关键词的区块
+      const kw = ['相关推荐','相关文章','热门阅读','推荐阅读','猜你喜欢','相关新闻','RELATED','Recommended','热门文章','编辑推荐','相关资讯','热点推荐','大家还在看','延伸阅读']
+      $('section, aside, nav, div[class*=related], div[class*=recommend], div[class*=hot], div[class*=read]').each(function(this: any) {
+        for (const k of kw) { if ($(this).text().includes(k)) { $(this).remove(); break } }
       })
+      // 2) 去掉末尾的"原文：..."链接（与自带按钮重复）
+      $('p, div').each(function(this: any) {
+        const t = $(this).text().trim()
+        if (/^原文[\s:：]/.test(t) || /^原文链接[\s:：]/.test(t) || /^本文链接[\s:：]/.test(t)) {
+          $(this).remove()
+        }
+      })
+      // 3) 去掉空的 hr（分割线）
+      $('hr').remove()
       return $('body').html() || html
     } catch { return html }
   }
