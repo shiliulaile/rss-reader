@@ -244,6 +244,21 @@ function registerIpcHandlers() {
     return article
   })
 
+  /** 去除提取内容中的相关推荐/热门阅读等干扰区块 */
+  function cleanContent(html: string): string {
+    if (!html) return html
+    try {
+      const cheerio = require('cheerio')
+      const $ = cheerio.load(html)
+      const keywords = ['相关推荐','相关文章','热门阅读','推荐阅读','猜你喜欢','相关新闻','RELATED','Recommended','热门文章','编辑推荐','相关资讯','热点推荐','大家还在看','延伸阅读']
+      $('section, aside, nav, div[class*=related], div[class*=recommend], div[class*=hot], div[class*=read], div[class*=topic]').each(function(this: any) {
+        const text = $(this).text()
+        for (const kw of keywords) { if (text.includes(kw)) { $(this).remove(); break } }
+      })
+      return $('body').html() || html
+    } catch { return html }
+  }
+
   /** 提取网页正文：cheerio 选择器 + Readability 双层方案 */
   async function extractFromUrl(url: string) {
     // 方法一：cheerio 选择器（最稳定，CJS 兼容）
@@ -260,15 +275,14 @@ function registerIpcHandlers() {
       const selectors = ['article', '.article-content', '.post-content', '.entry-content', '.content', 'main', '.main-content', '.post_body', '#article-content']
       for (const sel of selectors) {
         const el = $(sel).html()
-        if (el && el.length > 200) return { content: el, summary: $(el).text().substring(0, 500) }
+        if (el && el.length > 200) return { content: cleanContent(el), summary: $(el).text().substring(0, 500) }
       }
-      // 兜底：取 body 中较长的段落
       const paragraphs: string[] = []
       $('p').each((_: number, el: any) => { const t = $(el).text().trim(); if (t.length > 30) paragraphs.push($.html(el)) })
-      if (paragraphs.length > 2) return { content: paragraphs.join(''), summary: paragraphs.join(' ').substring(0, 500) }
+      if (paragraphs.length > 2) return { content: cleanContent(paragraphs.join('')), summary: paragraphs.join(' ').substring(0, 500) }
     } catch {}
 
-    // 方法二：linkedom + Readability（更精确，可能在某些环境不兼容）
+    // 方法二：linkedom + Readability（更精确）
     try {
       const resp = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36', 'Accept': 'text/html' },
@@ -281,7 +295,7 @@ function registerIpcHandlers() {
       const reader = new Readability(parseHTML(html).window.document, { keepClasses: true })
       const article = reader.parse()
       if (article && article.content && article.content.length > 200) {
-        return { content: article.content, summary: article.textContent?.substring(0, 500) || '' }
+        return { content: cleanContent(article.content), summary: article.textContent?.substring(0, 500) || '' }
       }
     } catch {}
 
