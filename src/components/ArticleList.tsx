@@ -61,16 +61,26 @@ export default function ArticleList() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white">
-        <h2 className="text-sm font-semibold text-surface-700">
-          {view === 'all' && '全部文章'}
-          {view === 'starred' && '星标文章'}
-          {view === 'feed' && '订阅源文章'}
-          {view === 'category' && '分类文章'}
-          {searchQuery && `搜索: ${searchQuery}`}
-        </h2>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white shrink-0">
+        <div className="flex items-center gap-2">
+          {view !== 'all' && (
+            <button
+              onClick={() => useUIStore.getState().setView('all')}
+              className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              全部
+            </button>
+          )}
+          <h2 className="text-sm font-semibold text-surface-700">
+            {view === 'all' && '全部文章'}
+            {view === 'starred' && '星标文章'}
+            {view === 'feed' && '订阅源文章'}
+            {view === 'category' && '分类文章'}
+            {searchQuery && `搜索: ${searchQuery}`}
+          </h2>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadArticles}

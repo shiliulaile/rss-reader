@@ -5,7 +5,7 @@ import { Star, ExternalLink, ChevronLeft, Loader2 } from 'lucide-react'
 
 export default function ArticleView() {
   const [article, setArticle] = useState<Article | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const { selectedArticleId, selectArticle } = useUIStore()
 
   useEffect(() => {
@@ -32,6 +32,17 @@ export default function ArticleView() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <div className="flex items-center gap-2 text-primary-600">
+          <Loader2 size={18} className="animate-spin" />
+          <span className="text-sm">加载中...</span>
+        </div>
+      </div>
+    )
+  }
+
   if (!article) {
     return (
       <div className="flex items-center justify-center h-full bg-surface-50">
@@ -45,22 +56,16 @@ export default function ArticleView() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Toolbar */}
+      {/* 顶部栏：返回 + 操作按钮 */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white shrink-0">
         <button
           onClick={() => selectArticle(null)}
-          className="flex items-center gap-1 text-sm text-surface-500 hover:text-surface-700 transition-colors"
+          className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 transition-colors font-medium"
         >
-          <ChevronLeft size={16} />
-          返回
+          <ChevronLeft size={18} />
+          返回文章列表
         </button>
         <div className="flex items-center gap-1">
-          {loading && (
-            <span className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600">
-              <Loader2 size={13} className="animate-spin" />
-              加载中...
-            </span>
-          )}
           <button
             onClick={handleToggleStar}
             className={`p-1.5 rounded hover:bg-surface-100 transition-colors ${article.is_starred ? 'text-yellow-500' : 'text-surface-400'}`}
@@ -78,10 +83,10 @@ export default function ArticleView() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* 文章内容 */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-10 py-8">
-          {/* Meta */}
+        <div className="max-w-3xl mx-auto px-8 py-6">
+          {/* 来源 + 时间 */}
           <div className="flex items-center gap-2 text-xs text-surface-400 mb-3">
             <span className="font-medium text-surface-500">{article.feed_title}</span>
             {article.author && <><span>·</span><span>{article.author}</span></>}
@@ -90,30 +95,30 @@ export default function ArticleView() {
             )}
           </div>
 
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-surface-900 mb-8 leading-snug">
+          {/* 标题 */}
+          <h1 className="text-2xl font-bold text-surface-900 mb-6 leading-snug">
             {article.title}
           </h1>
 
-          {/* Content */}
+          {/* 内容 */}
           <div
             className="prose prose-sm max-w-none prose-headings:text-surface-900 prose-a:text-primary-600 prose-img:rounded-lg prose-p:leading-relaxed"
             dangerouslySetInnerHTML={{
-              __html: (article.content || article.summary || '<p style="color:#94a3b8">提取中...</p>')
+              __html: (article.content || article.summary || '<p style="color:#94a3b8">无内容</p>')
             }}
           />
 
-          {/* 摘要类提醒 */}
+          {/* 摘要提示 */}
           {article.url && (article.url.includes('douban.com') || (article.content || '').length < 200) && (
             <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm">
               <p className="text-amber-800 font-medium mb-1">📝 温馨提醒</p>
               <p className="text-amber-700">
-                当前仅显示文章摘要，完整内容请点击下方按钮在浏览器中查看原文
+                当前仅显示摘要，完整内容请点击下方按钮在浏览器中查看原文
               </p>
             </div>
           )}
 
-          {/* External Link */}
+          {/* 查看原文 */}
           {article.url && (
             <div className="mt-4 pt-6 border-t border-surface-200">
               <button
