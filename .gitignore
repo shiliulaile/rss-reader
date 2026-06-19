@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.db
+.env
+.DS_Store
+test_*.js
+full_test.js

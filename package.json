@@ -1,0 +1,77 @@
+{
+  "name": "rss-reader",
+  "version": "1.0.0",
+  "description": "A modern RSS reader desktop application",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "postinstall": "npx @electron/rebuild",
+    "dev": "concurrently -k \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && npx tsc -p tsconfig.node.json && npx electron .",
+    "build:renderer": "vite build",
+    "build:electron": "npx tsc -p tsconfig.node.json",
+    "build": "npm run build:electron && npm run build:renderer",
+    "dist": "npm run build && npx electron-builder"
+  },
+  "keywords": [
+    "rss",
+    "reader",
+    "electron",
+    "desktop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@extractus/article-extractor": "^8.1.0",
+    "@mozilla/readability": "^0.6.0",
+    "better-sqlite3": "^12.11.1",
+    "chardet": "^2.1.1",
+    "cheerio": "^1.2.0",
+    "dompurify": "^3.4.11",
+    "jsdom": "^29.1.1",
+    "linkedom": "^0.18.12",
+    "lucide-react": "^1.21.0",
+    "opml-to-json": "^1.0.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "rss-parser": "^3.13.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "@tailwindcss/typography": "^0.5.20",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^6.0.3",
+    "vite": "^6.4.3",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.rssreader.app",
+    "productName": "RSS Reader",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
