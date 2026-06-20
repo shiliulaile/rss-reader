@@ -297,12 +297,32 @@ function registerIpcHandlers() {
         } catch {}
       }
 
-      // 3) 去重（去掉尾部斜杠，防止 /feed 和 /feed/ 重复）
-      const seen = new Set<string>()
+      // 3) 智能去重（/rss 和 /rss.xml → 保留 /rss）
+      const normalizeUrl = (u: string) => {
+        let s = u.replace(/\/+$/, '')          // 去掉尾部 /
+        s = s.replace(/\.xml$/, '')            // feed.xml → feed, rss.xml → rss
+        return s
+      }
+      const groupKey = (u: string) => {
+        const s = normalizeUrl(u)
+        // 以 /feed 结尾的和以 /rss 结尾的视为不同类
+        if (s.endsWith('/feed')) return 'feed'
+        if (s.endsWith('/rss')) return 'rss'
+        if (s.endsWith('/atom')) return 'atom'
+        return s
+      }
+      const seen = new Map<string, string>()   // groupKey → keptUrl
       const deduped = discovered.filter(f => {
-        const key = f.url.replace(/\/+$/, '')
-        if (seen.has(key)) return false
-        seen.add(key)
+        const norm = normalizeUrl(f.url)
+        if (seen.has(norm)) return false       // 标准化后相同→去重
+        seen.set(norm, f.url)
+        // 同类只保留一个（如 /feed 和 /feed.xml）
+        const gk = groupKey(f.url)
+        for (const [k, v] of seen) {
+          if (k !== norm && groupKey(v) === gk) {
+            return false
+          }
+        }
         return true
       })
 
