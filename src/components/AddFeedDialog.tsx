@@ -132,7 +132,13 @@ export default function AddFeedDialog() {
                 </div>
               )}
             </div>
-            <p className="text-xs text-surface-400 mt-1">输入后自动检测，找到的订阅源会显示在下方</p>
+            <p className="text-xs mt-1">
+              {detecting ? (
+                <span className="text-primary-600">正在检测 RSS 源…</span>
+              ) : (
+                <span className="text-surface-400">输入后自动检测，找到的订阅源会显示在下方</span>
+              )}
+            </p>
           </div>
 
           {/* 检测到的源 */}
@@ -190,7 +196,7 @@ export default function AddFeedDialog() {
             </button>
             <button
               type="submit"
-              disabled={loading || !url.trim()}
+              disabled={loading || detecting || !url.trim()}
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading && <Loader2 size={14} className="animate-spin" />}

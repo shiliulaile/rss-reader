@@ -334,10 +334,17 @@ function registerIpcHandlers() {
         }
       }
       // 再试 URL 提取
-      if (article.url) {
+      if (article.url && content.length > 0) {
         try {
           const extracted = await extractFromUrl(article.url)
           if (extracted && extracted.content) {
+            // 验证提取结果是否包含文章标题（防止混入 "下一篇"）
+            const titleKey = article.title?.substring(0, 15)?.replace(/[^一-龥a-zA-Z]/g, '') || ''
+            const hasTitle = titleKey.length > 3 ? extracted.content.includes(titleKey) : false
+            if (!hasTitle && !isRaw && !isDraftJs) {
+              // 原 RSS 是可读文本但提取结果不含标题 → 提取错了，保留原内容
+              return article
+            }
             db.prepare('UPDATE articles SET content = ?, summary = ? WHERE id = ?').run(extracted.content, extracted.summary || '', id)
             article.content = extracted.content
             article.summary = extracted.summary
