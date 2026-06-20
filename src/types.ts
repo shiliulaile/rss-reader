@@ -67,6 +67,7 @@ export declare global {
         remove: (id: number) => Promise<boolean>
         updateCategory: (feedId: number, categoryId: number | null) => Promise<boolean>
         detect: (siteUrl: string) => Promise<Array<{ title: string; url: string }>>
+        generateFromUrl: (siteUrl: string) => Promise<{ success: boolean; feedId?: number; title?: string }>
       }
       articles: {
         list: (options: ArticleListOptions) => Promise<Article[]>

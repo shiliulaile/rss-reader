@@ -166,6 +166,47 @@ function registerIpcHandlers() {
     }
   })
 
+  /** 从任意网页生成订阅源（用 Readability 提取正文） */
+  ipcMain.handle('feeds:generateFromUrl', async (_e, siteUrl: string) => {
+    try {
+      const resp = await fetch(siteUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
+        redirect: 'follow',
+      })
+      const html = await resp.text()
+      if (html.length < 200) throw new Error('无法获取网页内容')
+
+      const cheerio = require('cheerio')
+      const $ = cheerio.load(html)
+      const siteTitle = $('title').text().trim() || siteUrl
+      const feedName = siteTitle.substring(0, 50)
+
+      const exists = db.prepare('SELECT id FROM feeds WHERE url = ?').get(siteUrl)
+      if (exists) throw new Error('该地址已存在')
+
+      const result = db.prepare(
+        'INSERT INTO feeds (title, url, site_url, description) VALUES (?, ?, ?, ?)'
+      ).run(feedName, siteUrl, siteUrl, '从网页自动生成的订阅源')
+      const feedId = result.lastInsertRowid as number
+
+      try {
+        const { parseHTML } = require('linkedom')
+        const { Readability } = require('@mozilla/readability')
+        const reader = new Readability(parseHTML(html).window.document, { keepClasses: true })
+        const article = reader.parse()
+        if (article && article.content) {
+          db.prepare(
+            'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+          ).run(feedId, siteUrl, article.title || feedName, siteUrl, article.content, new Date().toISOString())
+        }
+      } catch {}
+
+      return { success: true, feedId, title: feedName }
+    } catch (e: any) {
+      throw new Error(e?.message || '生成失败')
+    }
+  })
+
   ipcMain.handle('feeds:refresh', async (_e, feedId) => {
     nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL
     try {
@@ -332,7 +373,7 @@ function registerIpcHandlers() {
         return '📡 ' + (siteTitle || '订阅源')
       }
 
-      // 5) 如果没有检测到原生源，尝试 RSSHub
+      // 5) 如果没有检测到原生源，尝试 RSSHub + 通用网页提取
       if (deduped.length === 0) {
         const domain = url.hostname.replace(/^www\./, '')
         const rsshubUrls = [
@@ -351,7 +392,15 @@ function registerIpcHandlers() {
         }
       }
 
-      // 6) 为每个源生成显示名称
+      // 6) 仍然没有？提供通用网页抓取选项（用 Readability 提取）
+      if (deduped.length === 0) {
+        deduped.push({
+          title: '🔧 从网页生成（实验性）',
+          url: url.origin,
+        })
+      }
+
+      // 7) 为每个源生成显示名称
       const siteTitle = deduped.length > 0 ? deduped[0]?.title || '' : ''
       for (const feed of deduped) {
         if (!feed.title) feed.title = describeFeed(feed.url, siteTitle)

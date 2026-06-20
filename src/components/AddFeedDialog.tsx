@@ -56,12 +56,30 @@ export default function AddFeedDialog() {
       if (feeds.length > 0) {
         setDetectedFeeds(feeds)
       } else {
-        setError('未找到 RSS 订阅源，可手动输入 RSS 地址')
+        setDetectedFeeds([{ title: '🔧 从网页生成订阅源（实验性）', url: targetUrl }])
       }
     } catch {
       setError('检测失败，请检查网址是否正确')
     } finally {
       setDetecting(false)
+    }
+  }
+
+  /** 从无 RSS 的网页生成订阅源 */
+  const handleGenerateFeed = async (siteUrl: string) => {
+    if (!window.electronAPI) return
+    setLoading(true)
+    setError('')
+    try {
+      await window.electronAPI.feeds.generateFromUrl(siteUrl)
+      triggerFeedRefresh()
+      setShowAddFeedDialog(false)
+    } catch (err: any) {
+      let msg = err?.message || (typeof err === 'string' ? err : null) || ''
+      msg = msg.replace(/^Error invoking remote method ['"].*?['"]:\s*Error:\s*/, '')
+      setError(msg || '生成失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -151,14 +169,25 @@ export default function AddFeedDialog() {
                     <p className="text-sm text-primary-900 truncate">{feed.title || feed.url}</p>
                     <p className="text-xs text-primary-500 truncate">{feed.url}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddFeed(feed.url)}
-                    disabled={loading}
-                    className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap disabled:opacity-50"
-                  >
-                    {loading ? '添加中...' : '+ 添加'}
-                  </button>
+                  {feed.title.startsWith('🔧') ? (
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateFeed(feed.url)}
+                      disabled={loading}
+                      className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {loading ? '生成中...' : '⚡ 生成'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleAddFeed(feed.url)}
+                      disabled={loading}
+                      className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {loading ? '添加中...' : '+ 添加'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
