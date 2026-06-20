@@ -201,6 +201,71 @@ function registerIpcHandlers() {
     return true
   })
 
+  // ---- 自动检测 RSS 源 ----
+  ipcMain.handle('feeds:detect', async (_e, siteUrl: string) => {
+    try {
+      // 确保 URL 格式正确
+      if (!siteUrl.startsWith('http')) siteUrl = 'https://' + siteUrl
+      const url = new URL(siteUrl)
+      const discovered: Array<{ title: string; url: string }> = []
+      const checked = new Set<string>()
+
+      // 1) 先看网页 HTML 中有没有 <link> 指向 RSS
+      try {
+        const resp = await fetch(url.href, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
+          redirect: 'follow',
+        })
+        const html = await resp.text()
+        // 提取 <link type="application/rss+xml" href="...">
+        const linkRe = /<link[^>]*?(?:type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'][^>]*?href\s*=\s*["']([^"']+)["']|href\s*=\s*["']([^"']+)["'][^>]*?type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'])/gi
+        let m: RegExpExecArray | null
+        while ((m = linkRe.exec(html)) !== null) {
+          const feedUrl = m[2] || m[3]
+          if (feedUrl && !checked.has(feedUrl)) {
+            checked.add(feedUrl)
+            const fullUrl = feedUrl.startsWith('http') ? feedUrl : new URL(feedUrl, url.origin).href
+            discovered.push({ title: '', url: fullUrl })
+          }
+        }
+      } catch {}
+
+      // 2) 检查常见路径
+      const commonPaths = ['/feed', '/rss', '/feed.xml', '/rss.xml', '/atom.xml', '/index.xml', '/feeds', '/feed/']
+      for (const path of commonPaths) {
+        const feedUrl = url.origin + path
+        if (checked.has(feedUrl)) continue
+        checked.add(feedUrl)
+        try {
+          const resp = await fetch(feedUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            redirect: 'follow',
+          })
+          const text = await resp.text()
+          if (text.includes('<rss') || text.includes('<feed') || text.includes('<rdf:RDF')) {
+            discovered.push({ title: '', url: feedUrl })
+          }
+        } catch {}
+      }
+
+      // 3) 尝试解析每个发现源的标题
+      const Parser = require('rss-parser')
+      const parser = new Parser({ timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } })
+      for (const feed of discovered) {
+        try {
+          const parsed = await parser.parseURL(feed.url)
+          feed.title = parsed.title || feed.title || feed.url
+        } catch {
+          feed.title = feed.url
+        }
+      }
+
+      return discovered
+    } catch {
+      return []
+    }
+  })
+
   // ---- Articles ----
   ipcMain.handle('articles:list', (_e, options) => {
     let query = [

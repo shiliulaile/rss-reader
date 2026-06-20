@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { useUIStore } from '../store/uiStore'
 import type { Category } from '../types'
-import { X, Rss, Loader2 } from 'lucide-react'
+import { X, Rss, Loader2, Search } from 'lucide-react'
+
+interface DetectedFeed {
+  title: string
+  url: string
+}
 
 export default function AddFeedDialog() {
   const [url, setUrl] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined)
   const [loading, setLoading] = useState(false)
+  const [detecting, setDetecting] = useState(false)
   const [error, setError] = useState('')
+  const [detectedFeeds, setDetectedFeeds] = useState<DetectedFeed[]>([])
   const { showAddFeedDialog, setShowAddFeedDialog, triggerFeedRefresh } = useUIStore()
 
   useEffect(() => {
@@ -17,27 +24,49 @@ export default function AddFeedDialog() {
       setUrl('')
       setError('')
       setCategoryId(undefined)
+      setDetectedFeeds([])
     }
   }, [showAddFeedDialog])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!url.trim()) return
-    if (!window.electronAPI) return
+  const handleDetect = async () => {
+    if (!url.trim() || !window.electronAPI) return
+    setDetecting(true)
+    setError('')
+    setDetectedFeeds([])
+    try {
+      const feeds = await window.electronAPI.feeds.detect(url.trim())
+      if (feeds.length > 0) {
+        setDetectedFeeds(feeds)
+      } else {
+        setError('未找到 RSS 订阅源，请手动输入 RSS 地址')
+      }
+    } catch {
+      setError('检测失败，请检查网址是否正确')
+    } finally {
+      setDetecting(false)
+    }
+  }
 
+  const handleAddFeed = async (feedUrl: string) => {
+    if (!window.electronAPI) return
     setLoading(true)
     setError('')
     try {
-      const result = await window.electronAPI.feeds.add(url.trim(), categoryId)
+      await window.electronAPI.feeds.add(feedUrl, categoryId)
       triggerFeedRefresh()
       setShowAddFeedDialog(false)
     } catch (err: any) {
-      console.error('Add feed error:', err)
       const msg = err?.message || (typeof err === 'string' ? err : null)
-      setError(msg || '添加失败，请检查URL是否为有效的RSS订阅源')
+      setError(msg || '添加失败')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!url.trim() || !window.electronAPI) return
+    await handleAddFeed(url.trim())
   }
 
   if (!showAddFeedDialog) return null
@@ -63,18 +92,52 @@ export default function AddFeedDialog() {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-surface-700 mb-1.5">
-              订阅源 URL
+              网站地址或 RSS 链接
             </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
-              className="input-field"
-              autoFocus
-              required
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => { setUrl(e.target.value); setDetectedFeeds([]) }}
+                placeholder="https://sspai.com 或 https://sspai.com/feed"
+                className="input-field flex-1"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleDetect}
+                disabled={detecting || !url.trim()}
+                className="btn-secondary flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+              >
+                {detecting ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                检测
+              </button>
+            </div>
+            <p className="text-xs text-surface-400 mt-1">输入网站首页地址，点击「检测」自动查找 RSS 源</p>
           </div>
+
+          {/* 检测到的源 */}
+          {detectedFeeds.length > 0 && (
+            <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-primary-700">找到以下订阅源：</p>
+              {detectedFeeds.map((feed, i) => (
+                <div key={i} className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-primary-900 truncate">{feed.title || feed.url}</p>
+                    <p className="text-xs text-primary-500 truncate">{feed.url}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddFeed(feed.url)}
+                    disabled={loading}
+                    className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap disabled:opacity-50"
+                  >
+                    {loading ? '添加中...' : '+ 添加'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-surface-700 mb-1.5">
@@ -112,7 +175,7 @@ export default function AddFeedDialog() {
               className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading && <Loader2 size={14} className="animate-spin" />}
-              {loading ? '添加中...' : '添加'}
+              {loading ? '添加中...' : '直接添加'}
             </button>
           </div>
         </form>

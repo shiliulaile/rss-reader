@@ -16,6 +16,7 @@ const api = {
     refresh: (feedId?: number) => ipcRenderer.invoke('feeds:refresh', feedId),
     remove: (id: number) => ipcRenderer.invoke('feeds:remove', id),
     updateCategory: (feedId: number, categoryId: number | null) => ipcRenderer.invoke('feeds:updateCategory', feedId, categoryId),
+    detect: (siteUrl: string) => ipcRenderer.invoke('feeds:detect', siteUrl),
   },
 
   // Articles

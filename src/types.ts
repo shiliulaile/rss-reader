@@ -66,6 +66,7 @@ export declare global {
         refresh: (feedId?: number) => Promise<any[]>
         remove: (id: number) => Promise<boolean>
         updateCategory: (feedId: number, categoryId: number | null) => Promise<boolean>
+        detect: (siteUrl: string) => Promise<Array<{ title: string; url: string }>>
       }
       articles: {
         list: (options: ArticleListOptions) => Promise<Article[]>
