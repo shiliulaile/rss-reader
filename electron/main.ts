@@ -335,14 +335,20 @@ function registerIpcHandlers() {
       // 5) 如果没有检测到原生源，尝试 RSSHub
       if (deduped.length === 0) {
         const domain = url.hostname.replace(/^www\./, '')
-        const rsshubUrl = 'https://rsshub.app/' + domain
-        try {
-          const r = await fetch(rsshubUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow', signal: AbortSignal.timeout(5000) })
-          const text = await r.text()
-          if (text.includes('<rss') || text.includes('<feed')) {
-            deduped.push({ title: '📡 ' + domain + ' (RSSHub)', url: rsshubUrl })
-          }
-        } catch {}
+        const rsshubUrls = [
+          'https://rsshub.app/' + domain,
+          'https://rsshub.app/website?url=' + encodeURIComponent(url.origin),
+        ]
+        for (const rsshubUrl of rsshubUrls) {
+          try {
+            const r = await fetch(rsshubUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow', signal: AbortSignal.timeout(8000) })
+            const text = await r.text()
+            if (text.includes('<rss') || text.includes('<feed')) {
+              deduped.push({ title: '📡 ' + domain + ' (RSSHub)', url: rsshubUrl })
+              break
+            }
+          } catch {}
+        }
       }
 
       // 6) 为每个源生成显示名称
