@@ -159,14 +159,14 @@ export default function Sidebar() {
           className="sidebar-item w-full text-surface-600"
         >
           <Download size={16} />
-          <span className="text-left">导入 OPML</span>
+          <span className="text-left">导入 RSS 源</span>
         </button>
         <button
           onClick={handleExport}
           className="sidebar-item w-full text-surface-600"
         >
           <Upload size={16} />
-          <span className="text-left">导出 OPML</span>
+          <span className="text-left">导出 RSS 源</span>
         </button>
       </div>
     </div>
