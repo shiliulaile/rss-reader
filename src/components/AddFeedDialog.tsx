@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useUIStore } from '../store/uiStore'
 import type { Category } from '../types'
-import { X, Rss, Loader2, Search } from 'lucide-react'
+import { X, Rss, Loader2 } from 'lucide-react'
 
 interface DetectedFeed {
   title: string
   url: string
 }
+
+const AUTO_DETECT_DELAY = 800 // 毫秒
 
 export default function AddFeedDialog() {
   const [url, setUrl] = useState('')
@@ -16,8 +18,10 @@ export default function AddFeedDialog() {
   const [detecting, setDetecting] = useState(false)
   const [error, setError] = useState('')
   const [detectedFeeds, setDetectedFeeds] = useState<DetectedFeed[]>([])
+  const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { showAddFeedDialog, setShowAddFeedDialog, triggerFeedRefresh } = useUIStore()
 
+  // 打开对话框时重置
   useEffect(() => {
     if (showAddFeedDialog && window.electronAPI) {
       window.electronAPI.categories.list().then(setCategories)
@@ -28,17 +32,31 @@ export default function AddFeedDialog() {
     }
   }, [showAddFeedDialog])
 
-  const handleDetect = async () => {
-    if (!url.trim() || !window.electronAPI) return
-    setDetecting(true)
-    setError('')
+  // URL 输入变化时自动检测（防抖）
+  useEffect(() => {
+    if (detectTimer.current) clearTimeout(detectTimer.current)
     setDetectedFeeds([])
+    setError('')
+    const val = url.trim()
+    // 输入太短或不像网址就不检测
+    if (val.length < 4 || (!val.includes('.') && !val.startsWith('http'))) return
+    // 已经是以 .xml .rss 结尾的，不用检测
+    if (val.endsWith('.xml') || val.endsWith('.rss') || val.includes('/feed') || val.includes('/rss')) return
+    detectTimer.current = setTimeout(() => {
+      handleDetect(val)
+    }, AUTO_DETECT_DELAY)
+    return () => { if (detectTimer.current) clearTimeout(detectTimer.current) }
+  }, [url])
+
+  const handleDetect = async (targetUrl: string) => {
+    if (!targetUrl || !window.electronAPI) return
+    setDetecting(true)
     try {
-      const feeds = await window.electronAPI.feeds.detect(url.trim())
+      const feeds = await window.electronAPI.feeds.detect(targetUrl)
       if (feeds.length > 0) {
         setDetectedFeeds(feeds)
       } else {
-        setError('未找到 RSS 订阅源，请手动输入 RSS 地址')
+        setError('未找到 RSS 订阅源，可手动输入 RSS 地址')
       }
     } catch {
       setError('检测失败，请检查网址是否正确')
@@ -99,26 +117,22 @@ export default function AddFeedDialog() {
             <label className="block text-sm font-medium text-surface-700 mb-1.5">
               网站地址或 RSS 链接
             </label>
-            <div className="flex gap-2">
+            <div className="relative">
               <input
                 type="text"
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setDetectedFeeds([]) }}
-                placeholder="https://sspai.com 或 https://sspai.com/feed"
-                className="input-field flex-1"
+                placeholder="输入网站地址，自动检测 RSS 源…"
+                className="input-field pr-8"
                 autoFocus
               />
-              <button
-                type="button"
-                onClick={handleDetect}
-                disabled={detecting || !url.trim()}
-                className="btn-secondary flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
-              >
-                {detecting ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                检测
-              </button>
+              {detecting && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                  <Loader2 size={16} className="animate-spin text-primary-500" />
+                </div>
+              )}
             </div>
-            <p className="text-xs text-surface-400 mt-1">输入网站首页地址，点击「检测」自动查找 RSS 源</p>
+            <p className="text-xs text-surface-400 mt-1">输入后自动检测，找到的订阅源会显示在下方</p>
           </div>
 
           {/* 检测到的源 */}
