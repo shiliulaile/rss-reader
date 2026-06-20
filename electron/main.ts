@@ -30,6 +30,7 @@ function createWindow() {
 }
 
 const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000 // 30 分钟
+let nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
@@ -37,7 +38,9 @@ app.whenReady().then(() => {
   registerIpcHandlers()
 
   // 定时自动刷新所有订阅源
+  nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL
   setInterval(async () => {
+    nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL
     try {
       const db = getDatabase()
       const feeds = db.prepare('SELECT * FROM feeds').all() as any[]
@@ -164,6 +167,7 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('feeds:refresh', async (_e, feedId) => {
+    nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL
     try {
       const feeds: any[] = feedId
         ? [db.prepare('SELECT * FROM feeds WHERE id = ?').get(feedId) as any]
@@ -673,6 +677,9 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:set', (_e, key, value) => {
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
     return true
+  })
+  ipcMain.handle('settings:getRefreshTime', () => {
+    return { nextRefresh: nextRefreshTime, interval: AUTO_REFRESH_INTERVAL }
   })
 
   // ---- Open External ----

@@ -82,6 +82,7 @@ export declare global {
       settings: {
         get: (key: string) => Promise<string | null>
         set: (key: string, value: string) => Promise<boolean>
+        getRefreshTime: () => Promise<{ nextRefresh: number; interval: number }>
       }
       openExternal: (url: string) => Promise<void>
     }

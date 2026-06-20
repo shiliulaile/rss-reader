@@ -1,16 +1,36 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useUIStore } from './store/uiStore'
 import Sidebar from './components/Sidebar'
 import ArticleList from './components/ArticleList'
 import ArticleView from './components/ArticleView'
 import AddFeedDialog from './components/AddFeedDialog'
-import { Search, Star, Rss, PanelLeft } from 'lucide-react'
+import { Search, Star, Rss, PanelLeft, RefreshCw } from 'lucide-react'
 
 export default function App() {
+  const [countdown, setCountdown] = useState('')
   const {
     view, setView, searchQuery, setSearchQuery,
     selectedArticleId, sidebarOpen, setSidebarOpen, selectArticle,
   } = useUIStore()
+
+  // 自动刷新倒计时
+  useEffect(() => {
+    const update = async () => {
+      if (!window.electronAPI) return
+      try {
+        const { nextRefresh } = await window.electronAPI.settings.getRefreshTime()
+        const remaining = Math.max(0, nextRefresh - Date.now())
+        const min = Math.floor(remaining / 60000)
+        const sec = Math.floor((remaining % 60000) / 1000)
+        setCountdown(`${min}:${sec.toString().padStart(2, '0')}`)
+      } catch {
+        setCountdown('')
+      }
+    }
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-white text-surface-800">
@@ -27,6 +47,12 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Rss size={16} className="text-primary-500" />
             <span className="text-sm font-semibold">RSS Reader</span>
+            {countdown && (
+              <span className="flex items-center gap-1 text-[11px] text-surface-400 ml-2">
+                <RefreshCw size={11} />
+                {countdown}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
