@@ -240,10 +240,10 @@ function registerIpcHandlers() {
     }
     // 精确匹配
     if (map[title.trim()]) return map[title.trim()]
-    // 部分匹配（标题中包含关键词）
+    // 部分匹配（标题中包含关键词，全部替换）
     for (const [en, cn] of Object.entries(map)) {
-      if (title.toLowerCase().includes(en.toLowerCase()) && en.length > 2) {
-        return title.replace(new RegExp(en, 'gi'), cn)
+      if (en.length > 2 && title.toLowerCase().includes(en.toLowerCase())) {
+        title = title.replace(new RegExp(en, 'gi'), cn)
       }
     }
     return title
