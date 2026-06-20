@@ -219,6 +219,34 @@ function registerIpcHandlers() {
     return true
   })
 
+  /** 常见 RSS 分类名中英文翻译 */
+  function translateFeedTitle(title: string): string {
+    const map: Record<string, string> = {
+      'Home': '首页', 'Featured': '精选', 'Featured Articles': '精选文章',
+      'Latest': '最新', 'Latest News': '最新新闻', 'News': '新闻',
+      'Technology': '科技', 'Tech': '科技', 'Science': '科学',
+      'Business': '商业', 'Finance': '财经', 'Economy': '经济',
+      'Sports': '体育', 'Entertainment': '娱乐', 'Culture': '文化',
+      'Lifestyle': '生活', 'Health': '健康', 'Food': '美食',
+      'Travel': '旅游', 'Gaming': '游戏', 'Games': '游戏',
+      'Video': '视频', 'Photos': '图片', 'Podcasts': '播客',
+      'Opinion': '观点', 'Editorial': '社论', 'Reviews': '评测',
+      'World': '国际', 'World News': '国际新闻', 'China': '中国',
+      'Politics': '政治', 'Education': '教育', 'Environment': '环境',
+      'Design': '设计', 'Development': '开发', 'Programming': '编程',
+      'AI': '人工智能', 'Mobile': '手机', 'Apps': '应用',
+      'Software': '软件', 'Hardware': '硬件', 'Security': '安全',
+      'Startups': '创业', 'Internet': '互联网', 'Social Media': '社交媒体',
+    }
+    // 精确匹配
+    if (map[title.trim()]) return map[title.trim()]
+    // 部分匹配（标题中包含关键词）
+    for (const [en, cn] of Object.entries(map)) {
+      if (title.includes(en) && en.length > 2) return title.replace(en, cn)
+    }
+    return title
+  }
+
   // ---- 自动检测 RSS 源 ----
   ipcMain.handle('feeds:detect', async (_e, siteUrl: string) => {
     try {
@@ -235,15 +263,16 @@ function registerIpcHandlers() {
           redirect: 'follow',
         })
         const html = await resp.text()
-        // 提取 <link type="application/rss+xml" href="...">
-        const linkRe = /<link[^>]*?(?:type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'][^>]*?href\s*=\s*["']([^"']+)["']|href\s*=\s*["']([^"']+)["'][^>]*?type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'])/gi
+        // 提取 <link type="application/rss+xml" href="..." title="...">
+        const linkRe = /<link[^>]*?(?:type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'][^>]*?href\s*=\s*["']([^"']+)["']|href\s*=\s*["']([^"']+)["'][^>]*?type\s*=\s*["'](application\/(?:rss|atom)\+xml)["'])(?:[^>]*?title\s*=\s*["']([^"']*)["'])?/gi
         let m: RegExpExecArray | null
         while ((m = linkRe.exec(html)) !== null) {
           const feedUrl = m[2] || m[3]
+          const feedTitle = m[4] || ''
           if (feedUrl && !checked.has(feedUrl)) {
             checked.add(feedUrl)
             const fullUrl = feedUrl.startsWith('http') ? feedUrl : new URL(feedUrl, url.origin).href
-            discovered.push({ title: '', url: fullUrl })
+            discovered.push({ title: feedTitle, url: fullUrl })
           }
         }
       } catch {}
@@ -273,8 +302,10 @@ function registerIpcHandlers() {
         try {
           const parsed = await parser.parseURL(feed.url)
           feed.title = parsed.title || feed.title || feed.url
+          // 将常见英文分类名翻译为中文
+          feed.title = translateFeedTitle(feed.title)
         } catch {
-          feed.title = feed.url
+          feed.title = translateFeedTitle(feed.url)
         }
       }
 
