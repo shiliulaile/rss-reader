@@ -44,12 +44,15 @@ app.whenReady().then(() => {
       for (const feed of feeds) {
         try {
           const parsed = await parser.parseURL(feed.url)
-          const insertArticle = db.prepare([
-            'INSERT OR IGNORE INTO articles (feed_id, guid, title, url, author, summary, content, published_at)',
+          const upsertArticle = db.prepare([
+            'INSERT INTO articles (feed_id, guid, title, url, author, summary, content, published_at)',
             'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'ON CONFLICT(feed_id, guid) DO UPDATE SET',
+            '  title = excluded.title, url = excluded.url, author = excluded.author,',
+            '  summary = excluded.summary, content = excluded.content, published_at = excluded.published_at',
           ].join('\n'))
           for (const item of parsed.items || []) {
-            insertArticle.run(
+            upsertArticle.run(
               feed.id, item.guid || item.link || '',
               item.title || '', item.link || '',
               item.creator || item.author || '',
@@ -169,13 +172,20 @@ function registerIpcHandlers() {
       for (const feed of feeds) {
         try {
           const parsed = await parser.parseURL(feed.url)
-          const insertArticle = db.prepare([
-            'INSERT OR IGNORE INTO articles (feed_id, guid, title, url, author, summary, content, published_at)',
+          const upsertArticle = db.prepare([
+            'INSERT INTO articles (feed_id, guid, title, url, author, summary, content, published_at)',
             'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'ON CONFLICT(feed_id, guid) DO UPDATE SET',
+            '  title = excluded.title,',
+            '  url = excluded.url,',
+            '  author = excluded.author,',
+            '  summary = excluded.summary,',
+            '  content = excluded.content,',
+            '  published_at = excluded.published_at',
           ].join('\n'))
           let newCount = 0
           for (const item of parsed.items || []) {
-            const info = insertArticle.run(
+            const info = upsertArticle.run(
               feed.id, item.guid || item.link || '',
               item.title || '', item.link || '',
               item.creator || item.author || '',
@@ -319,13 +329,13 @@ function registerIpcHandlers() {
     if (!article) return null
 
     const content = article.content || ''
-    const isShort = content.length < 500
-    const isDraftJs = Boolean(renderDraftJsContent(content))
+    const isDraftJs = renderDraftJsContent(content) !== null
     const isRaw = looksLikeRawData(content)
+    const needsExtract = isDraftJs || isRaw || content.trim().length === 0
 
-    if (isShort || isDraftJs || isRaw) {
+    if (needsExtract) {
       // 先试 Draft.js 渲染
-      if (!isDraftJs) {
+      if (isDraftJs) {
         const draftHtml = renderDraftJsContent(content)
         if (draftHtml) {
           db.prepare('UPDATE articles SET content = ?, summary = ? WHERE id = ?').run(draftHtml, (article.summary || ''), id)
@@ -337,17 +347,14 @@ function registerIpcHandlers() {
       if (article.url && content.length > 0) {
         try {
           const extracted = await extractFromUrl(article.url)
-          if (extracted && extracted.content) {
-            // 验证提取结果是否包含文章标题（防止混入 "下一篇"）
-            const titleKey = article.title?.substring(0, 15)?.replace(/[^一-龥a-zA-Z]/g, '') || ''
-            const hasTitle = titleKey.length > 3 ? extracted.content.includes(titleKey) : false
-            if (!hasTitle && !isRaw && !isDraftJs) {
-              // 原 RSS 是可读文本但提取结果不含标题 → 提取错了，保留原内容
-              return article
+          if (extracted && extracted.content && extracted.content.length > 200) {
+            // 验证提取结果包含文章标题
+            const titleKey = article.title?.substring(0, 15) || ''
+            if (!titleKey || extracted.content.includes(titleKey)) {
+              db.prepare('UPDATE articles SET content = ?, summary = ? WHERE id = ?').run(extracted.content, extracted.summary || '', id)
+              article.content = extracted.content
+              article.summary = extracted.summary
             }
-            db.prepare('UPDATE articles SET content = ?, summary = ? WHERE id = ?').run(extracted.content, extracted.summary || '', id)
-            article.content = extracted.content
-            article.summary = extracted.summary
           }
         } catch {}
       }
