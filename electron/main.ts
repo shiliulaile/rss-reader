@@ -297,46 +297,41 @@ function registerIpcHandlers() {
         } catch {}
       }
 
-      // 3) 智能去重（/rss 和 /rss.xml → 保留 /rss）
-      const normalizeUrl = (u: string) => {
-        let s = u.replace(/\/+$/, '')          // 去掉尾部 /
-        s = s.replace(/\.xml$/, '')            // feed.xml → feed, rss.xml → rss
-        return s
-      }
-      const groupKey = (u: string) => {
-        const s = normalizeUrl(u)
-        // 以 /feed 结尾的和以 /rss 结尾的视为不同类
-        if (s.endsWith('/feed')) return 'feed'
-        if (s.endsWith('/rss')) return 'rss'
-        if (s.endsWith('/atom')) return 'atom'
-        return s
-      }
-      const seen = new Map<string, string>()   // groupKey → keptUrl
+      // 3) 智能去重（/rss 和 /rss.xml 视为同一源）
+      const seen = new Set<string>()
       const deduped = discovered.filter(f => {
-        const norm = normalizeUrl(f.url)
-        if (seen.has(norm)) return false       // 标准化后相同→去重
-        seen.set(norm, f.url)
-        // 同类只保留一个（如 /feed 和 /feed.xml）
-        const gk = groupKey(f.url)
-        for (const [k, v] of seen) {
-          if (k !== norm && groupKey(v) === gk) {
-            return false
-          }
-        }
+        let key = f.url.replace(/\/+$/, '').replace(/\.xml$/, '')
+        if (seen.has(key)) return false
+        seen.add(key)
         return true
       })
 
-      // 4) 尝试解析每个发现源的标题
-      const Parser = require('rss-parser')
-      const parser = new Parser({ timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } })
-      for (const feed of deduped) {
-        try {
-          const parsed = await parser.parseURL(feed.url)
-          feed.title = parsed.title || feed.title || feed.url
-          feed.title = translateFeedTitle(feed.title)
-        } catch {
-          feed.title = translateFeedTitle(feed.url)
+      // 4) 生成可读的显示名称
+      const describeFeed = (url: string, siteTitle: string): string => {
+        const path = new URL(url).pathname
+        // 根据路径判断源的类型
+        if (path === '/' || path === '/feed' || path === '/rss' || path === '/atom' || path === '/index.xml' || path === '/feeds') return '📡 全部文章'
+        if (path === '/feed/') return '📡 全部文章'
+        // 分类源：提取路径中的分类名
+        const catMatch = path.match(/\/(?:category|categories|topic|section|topics)\/([^/]+)/i)
+        if (catMatch) {
+          const cat = translateFeedTitle(decodeURIComponent(catMatch[1]))
+          return '📂 ' + cat
         }
+        // /comments/feed → 评论
+        if (path.includes('/comments/') || path.includes('/comment/')) return '💬 评论'
+        // 其他路径：提取最后一段
+        const last = path.split('/').filter(Boolean).pop() || ''
+        if (last && last !== 'feed' && last !== 'rss' && last !== 'atom') {
+          return '📄 ' + translateFeedTitle(decodeURIComponent(last))
+        }
+        return '📡 ' + (siteTitle || '订阅源')
+      }
+
+      // 5) 为每个源生成显示名称，去除重复的标题
+      const siteTitle = deduped.length > 0 ? discovered[0]?.title || '' : ''
+      for (const feed of deduped) {
+        feed.title = describeFeed(feed.url, siteTitle)
       }
 
       return deduped
