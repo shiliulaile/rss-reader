@@ -85,7 +85,7 @@ export default function ArticleView() {
 
       {/* 文章内容 */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-8 py-6">
+        <div className="article-content max-w-3xl mx-auto px-8 py-6">
           {/* 来源 + 时间 */}
           <div className="flex items-center gap-2 text-xs text-surface-400 mb-3">
             <span className="font-medium text-surface-500">{article.feed_title}</span>
