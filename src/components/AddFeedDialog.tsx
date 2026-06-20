@@ -56,7 +56,9 @@ export default function AddFeedDialog() {
       triggerFeedRefresh()
       setShowAddFeedDialog(false)
     } catch (err: any) {
-      const msg = err?.message || (typeof err === 'string' ? err : null)
+      let msg = err?.message || (typeof err === 'string' ? err : null) || ''
+      // 去掉 Electron IPC 前缀
+      msg = msg.replace(/^Error invoking remote method ['"].*?['"]:\s*Error:\s*/, '')
       setError(msg || '添加失败')
     } finally {
       setLoading(false)
@@ -65,8 +67,11 @@ export default function AddFeedDialog() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!url.trim() || !window.electronAPI) return
-    await handleAddFeed(url.trim())
+    if (!window.electronAPI) return
+    // 如果检测到源，直接使用第一个检测到的源地址
+    const feedUrl = detectedFeeds.length > 0 ? detectedFeeds[0].url : url.trim()
+    if (!feedUrl) return
+    await handleAddFeed(feedUrl)
   }
 
   if (!showAddFeedDialog) return null

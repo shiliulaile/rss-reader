@@ -148,7 +148,15 @@ function registerIpcHandlers() {
       if (error?.message?.includes('UNIQUE constraint failed')) {
         throw new Error('该订阅源已存在，请勿重复添加')
       }
-      throw new Error('添加失败: ' + (error?.message || error || '未知错误'))
+      // 将 RSS 解析错误转中文
+      let msg = (error?.message || error || '') as string
+      if (msg.includes('Status code 4') || msg.includes('Status code 5')) msg = '网站返回错误，请确认网址是否正确'
+      else if (msg.includes('Unable to parse XML') || msg.includes('Unexpected close tag') || msg.includes('not well-formed') || msg.includes('Invalid character') || msg.includes('Invalid byte')) msg = '该地址不是 RSS 订阅源，请尝试使用「检测」功能自动查找'
+      else if (msg.includes('timed out') || msg.includes('timeout')) msg = '连接超时，请检查网络或网址'
+      else if (msg.includes('ENOTFOUND') || msg.includes('getaddrinfo')) msg = '无法解析域名，请检查网址是否正确'
+      else if (msg.includes('ECONNREFUSED')) msg = '连接被拒绝，网站可能暂时不可用'
+      else msg = '添加失败，请先用「检测」按钮查找 RSS 源，或直接输入 RSS 地址'
+      throw new Error(msg)
     }
   })
 
