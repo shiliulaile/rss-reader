@@ -213,9 +213,9 @@ function registerIpcHandlers() {
 
       // 3a) 提取页面中的文本段落（优先于 Readability，适合列表类网站）
       const paragraphs: string[] = []
-      $('p, li, td, .item, .title, a[href*=".html"]').each((_: number, el: any) => {
+      $('p, li, td, .item, .title, .list-group-item, [class*=item], a[href*=".html"]').each((_: number, el: any) => {
         const t = $(el).text().trim()
-        if (t.length > 15) paragraphs.push(t)
+        if (t.length > 15 && !paragraphs.includes(t)) paragraphs.push(t)
       })
       if (paragraphs.length > 3) {
         const content = paragraphs.join('<br/><br/>')
