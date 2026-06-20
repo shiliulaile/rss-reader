@@ -242,7 +242,9 @@ function registerIpcHandlers() {
     if (map[title.trim()]) return map[title.trim()]
     // 部分匹配（标题中包含关键词）
     for (const [en, cn] of Object.entries(map)) {
-      if (title.includes(en) && en.length > 2) return title.replace(en, cn)
+      if (title.toLowerCase().includes(en.toLowerCase()) && en.length > 2) {
+        return title.replace(new RegExp(en, 'gi'), cn)
+      }
     }
     return title
   }
@@ -277,8 +279,8 @@ function registerIpcHandlers() {
         }
       } catch {}
 
-      // 2) 检查常见路径
-      const commonPaths = ['/feed', '/rss', '/feed.xml', '/rss.xml', '/atom.xml', '/index.xml', '/feeds', '/feed/']
+      // 2) 检查常见路径（先去重）
+      const commonPaths = ['/feed', '/rss', '/feed.xml', '/rss.xml', '/atom.xml', '/index.xml', '/feeds']
       for (const path of commonPaths) {
         const feedUrl = url.origin + path
         if (checked.has(feedUrl)) continue
@@ -295,21 +297,29 @@ function registerIpcHandlers() {
         } catch {}
       }
 
-      // 3) 尝试解析每个发现源的标题
+      // 3) 去重（去掉尾部斜杠，防止 /feed 和 /feed/ 重复）
+      const seen = new Set<string>()
+      const deduped = discovered.filter(f => {
+        const key = f.url.replace(/\/+$/, '')
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+
+      // 4) 尝试解析每个发现源的标题
       const Parser = require('rss-parser')
       const parser = new Parser({ timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } })
-      for (const feed of discovered) {
+      for (const feed of deduped) {
         try {
           const parsed = await parser.parseURL(feed.url)
           feed.title = parsed.title || feed.title || feed.url
-          // 将常见英文分类名翻译为中文
           feed.title = translateFeedTitle(feed.title)
         } catch {
           feed.title = translateFeedTitle(feed.url)
         }
       }
 
-      return discovered
+      return deduped
     } catch {
       return []
     }
