@@ -51,6 +51,9 @@ export default function Sidebar() {
       const result = await window.electronAPI.opml.import()
       if (result.count > 0) {
         await loadData()
+        useUIStore.getState().showToast(`成功导入 ${result.count} 个订阅源`, 'success')
+      } else {
+        useUIStore.getState().showToast('未找到新的订阅源', 'info')
       }
     }
   }

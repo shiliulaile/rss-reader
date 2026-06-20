@@ -11,6 +11,7 @@ export default function App() {
   const {
     view, setView, searchQuery, setSearchQuery,
     selectedArticleId, sidebarOpen, setSidebarOpen, selectArticle,
+    toast, toastType,
   } = useUIStore()
 
   // 自动刷新倒计时
@@ -100,6 +101,17 @@ export default function App() {
 
       {/* Add Feed Dialog */}
       <AddFeedDialog />
+
+      {/* Toast 提示 */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 ${
+          toastType === 'success' ? 'bg-green-600 text-white' :
+          toastType === 'error' ? 'bg-red-600 text-white' :
+          'bg-surface-800 text-white'
+        }`}>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

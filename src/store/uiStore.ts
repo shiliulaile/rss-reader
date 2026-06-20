@@ -8,8 +8,10 @@ interface UIState {
   view: 'all' | 'starred' | 'category' | 'feed'
   searchQuery: string
   showAddFeedDialog: boolean
-  feedListVersion: number    // 递增触发侧栏刷新
-  articleListVersion: number  // 递增触发文章列表刷新
+  feedListVersion: number
+  articleListVersion: number
+  toast: string
+  toastType: 'success' | 'error' | 'info'
   setSidebarOpen: (open: boolean) => void
   selectFeed: (id: number | null) => void
   selectCategory: (id: number | null) => void
@@ -19,6 +21,8 @@ interface UIState {
   setShowAddFeedDialog: (show: boolean) => void
   triggerFeedRefresh: () => void
   triggerArticleRefresh: () => void
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+  hideToast: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -31,6 +35,8 @@ export const useUIStore = create<UIState>((set) => ({
   showAddFeedDialog: false,
   feedListVersion: 0,
   articleListVersion: 0,
+  toast: '',
+  toastType: 'info',
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   selectFeed: (id) => set({ selectedFeedId: id, view: id ? 'feed' : 'all', selectedArticleId: null }),
   selectCategory: (id) => set({ selectedCategoryId: id, view: id ? 'category' : 'all', selectedFeedId: null, selectedArticleId: null }),
@@ -40,4 +46,9 @@ export const useUIStore = create<UIState>((set) => ({
   setShowAddFeedDialog: (show) => set({ showAddFeedDialog: show }),
   triggerFeedRefresh: () => set((s) => ({ feedListVersion: s.feedListVersion + 1 })),
   triggerArticleRefresh: () => set((s) => ({ articleListVersion: s.articleListVersion + 1 })),
+  showToast: (msg, type = 'info') => {
+    set({ toast: msg, toastType: type })
+    setTimeout(() => set({ toast: '' }), 3000)
+  },
+  hideToast: () => set({ toast: '' }),
 }))
