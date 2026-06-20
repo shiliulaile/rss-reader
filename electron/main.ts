@@ -211,31 +211,32 @@ function registerIpcHandlers() {
       const { Readability } = require('@mozilla/readability')
       let articleCount = 0
 
-      // 3a) 当前页面提取
-      try {
-        const r = new Readability(parseHTML(html).window.document, { keepClasses: true })
-        const a = r.parse()
-        if (a && a.content && a.content.length > 200) {
-          db.prepare(
-            'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-          ).run(feedId, siteUrl, a.title || feedName, siteUrl, a.content, new Date().toISOString())
-          articleCount++
-        }
-      } catch {}
+      // 3a) 提取页面中的文本段落（优先于 Readability，适合列表类网站）
+      const paragraphs: string[] = []
+      $('p, li, td, .item, .title, a[href*=".html"]').each((_: number, el: any) => {
+        const t = $(el).text().trim()
+        if (t.length > 15) paragraphs.push(t)
+      })
+      if (paragraphs.length > 3) {
+        const content = paragraphs.join('<br/><br/>')
+        db.prepare(
+          'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(feedId, siteUrl, feedName, siteUrl, content, new Date().toISOString())
+        articleCount++
+      }
 
-      // 3b) 提取页面中的文本段落（兜底）
+      // 3b) 尝试 Readability 提取（备选）
       if (articleCount === 0) {
-        const paragraphs: string[] = []
-        $('p, li, td, .item, .title, a[href*=".html"]').each((_: number, el: any) => {
-          const t = $(el).text().trim()
-          if (t.length > 10) paragraphs.push(t)
-        })
-        if (paragraphs.length > 0) {
-          const content = paragraphs.join('<br/><br/>')
-          db.prepare(
-            'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-          ).run(feedId, siteUrl, feedName, siteUrl, content, new Date().toISOString())
-        }
+        try {
+          const r = new Readability(parseHTML(html).window.document, { keepClasses: true })
+          const a = r.parse()
+          if (a && a.content && a.content.length > 200) {
+            db.prepare(
+              'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+            ).run(feedId, siteUrl, a.title || feedName, siteUrl, a.content, new Date().toISOString())
+            articleCount++
+          }
+        } catch {}
       }
 
       // 3c) 尝试从发现的链接中提取前几个
@@ -246,13 +247,23 @@ function registerIpcHandlers() {
             headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow',
           })
           const linkHtml = await linkResp.text()
-          const r = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
-          const a = r.parse()
-          if (a && a.content && a.content.length > 200) {
-            const linkTitle = a.title || links[linkIdx]
+          const link$ = cheerio.load(linkHtml)
+          const linkPs: string[] = []
+          link$('p, li, td, .item, .title, .content').each((_: number, el: any) => {
+            const t = link$(el).text().trim()
+            if (t.length > 15) linkPs.push(t)
+          })
+          let linkContent = linkPs.join('<br/><br/>')
+          if (linkContent.length < 200) {
+            const r2 = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
+            const a2 = r2.parse()
+            if (a2 && a2.content && a2.content.length > 200) linkContent = a2.content
+          }
+          if (linkContent.length > 200) {
+            const linkTitle = link$('title').text().trim() || links[linkIdx]
             db.prepare(
               'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(feedId, links[linkIdx], linkTitle, links[linkIdx], a.content, new Date().toISOString())
+            ).run(feedId, links[linkIdx], linkTitle, links[linkIdx], linkContent, new Date().toISOString())
             articleCount++
           }
         } catch {}
