@@ -29,10 +29,41 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
+const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000 // 30 分钟
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   createWindow()
   registerIpcHandlers()
+
+  // 定时自动刷新所有订阅源
+  setInterval(async () => {
+    try {
+      const db = getDatabase()
+      const feeds = db.prepare('SELECT * FROM feeds').all() as any[]
+      for (const feed of feeds) {
+        try {
+          const parsed = await parser.parseURL(feed.url)
+          const insertArticle = db.prepare([
+            'INSERT OR IGNORE INTO articles (feed_id, guid, title, url, author, summary, content, published_at)',
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          ].join('\n'))
+          for (const item of parsed.items || []) {
+            insertArticle.run(
+              feed.id, item.guid || item.link || '',
+              item.title || '', item.link || '',
+              item.creator || item.author || '',
+              (item.contentSnippet || '').substring(0, 500),
+              item.content || item.contentSnippet || '',
+              item.pubDate ? new Date(item.pubDate).toISOString() : null
+            )
+          }
+          db.prepare('UPDATE feeds SET last_fetched_at = CURRENT_TIMESTAMP, error_count = 0, last_error = NULL WHERE id = ?').run(feed.id)
+        } catch {}
+      }
+    } catch {}
+  }, AUTO_REFRESH_INTERVAL)
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
