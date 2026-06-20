@@ -104,7 +104,12 @@ export default function AddFeedDialog() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!window.electronAPI) return
-    // 如果检测到源，直接使用第一个检测到的源地址
+    // 如果检测到的是「从网页生成」类型，调用生成
+    if (detectedFeeds.length > 0 && detectedFeeds[0].title.startsWith('🔧')) {
+      await handleGenerateFeed(detectedFeeds[0].url)
+      return
+    }
+    // 否则用检测到的源地址或输入框地址
     const feedUrl = detectedFeeds.length > 0 ? detectedFeeds[0].url : url.trim()
     if (!feedUrl) return
     await handleAddFeed(feedUrl)

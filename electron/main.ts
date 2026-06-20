@@ -166,9 +166,10 @@ function registerIpcHandlers() {
     }
   })
 
-  /** 从任意网页生成订阅源（用 Readability 提取正文） */
+  /** 从任意网页生成订阅源 */
   ipcMain.handle('feeds:generateFromUrl', async (_e, siteUrl: string) => {
     try {
+      // 1) 获取首页 HTML
       const resp = await fetch(siteUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
         redirect: 'follow',
@@ -186,20 +187,77 @@ function registerIpcHandlers() {
 
       const result = db.prepare(
         'INSERT INTO feeds (title, url, site_url, description) VALUES (?, ?, ?, ?)'
-      ).run(feedName, siteUrl, siteUrl, '从网页自动生成的订阅源')
+      ).run(feedName, siteUrl, siteUrl, '从网页自动生成')
       const feedId = result.lastInsertRowid as number
 
+      // 2) 提取当前页面的链接，尝试获取详情页内容
+      const links: string[] = []
+      $('a[href]').each((_: number, el: any) => {
+        const href = $(el).attr('href')
+        if (!href) return
+        // 只取同站链接，过滤掉首页/分类/非内容页
+        if (href.startsWith('/') || href.startsWith(siteUrl.replace(/\/$/, ''))) {
+          const fullUrl = href.startsWith('http') ? href : new URL(href, siteUrl).href
+          // 过滤非内容页：图片、JS、CSS、短链接等
+          if (fullUrl.match(/\.(jpg|jpeg|png|gif|svg|css|js|ico|woff)$/i)) return
+          if (fullUrl.split('/').pop()!.length > 10 && !links.includes(fullUrl) && fullUrl !== siteUrl.replace(/\/$/, '')) {
+            links.push(fullUrl)
+          }
+        }
+      })
+
+      // 3) 尝试从当前页面提取内容（Readability）
+      const { parseHTML } = require('linkedom')
+      const { Readability } = require('@mozilla/readability')
+      let articleCount = 0
+
+      // 3a) 当前页面提取
       try {
-        const { parseHTML } = require('linkedom')
-        const { Readability } = require('@mozilla/readability')
-        const reader = new Readability(parseHTML(html).window.document, { keepClasses: true })
-        const article = reader.parse()
-        if (article && article.content) {
+        const r = new Readability(parseHTML(html).window.document, { keepClasses: true })
+        const a = r.parse()
+        if (a && a.content && a.content.length > 200) {
           db.prepare(
             'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-          ).run(feedId, siteUrl, article.title || feedName, siteUrl, article.content, new Date().toISOString())
+          ).run(feedId, siteUrl, a.title || feedName, siteUrl, a.content, new Date().toISOString())
+          articleCount++
         }
       } catch {}
+
+      // 3b) 提取页面中的文本段落（兜底）
+      if (articleCount === 0) {
+        const paragraphs: string[] = []
+        $('p, li, td, .item, .title, a[href*=".html"]').each((_: number, el: any) => {
+          const t = $(el).text().trim()
+          if (t.length > 10) paragraphs.push(t)
+        })
+        if (paragraphs.length > 0) {
+          const content = paragraphs.join('<br/><br/>')
+          db.prepare(
+            'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+          ).run(feedId, siteUrl, feedName, siteUrl, content, new Date().toISOString())
+        }
+      }
+
+      // 3c) 尝试从发现的链接中提取前几个
+      let linkIdx = 0
+      while (articleCount < 3 && linkIdx < Math.min(links.length, 10)) {
+        try {
+          const linkResp = await fetch(links[linkIdx], {
+            headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow',
+          })
+          const linkHtml = await linkResp.text()
+          const r = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
+          const a = r.parse()
+          if (a && a.content && a.content.length > 200) {
+            const linkTitle = a.title || links[linkIdx]
+            db.prepare(
+              'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+            ).run(feedId, links[linkIdx], linkTitle, links[linkIdx], a.content, new Date().toISOString())
+            articleCount++
+          }
+        } catch {}
+        linkIdx++
+      }
 
       return { success: true, feedId, title: feedName }
     } catch (e: any) {
