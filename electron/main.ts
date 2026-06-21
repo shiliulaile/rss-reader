@@ -206,42 +206,14 @@ function registerIpcHandlers() {
         }
       })
 
-      // 3) 尝试从当前页面提取内容（Readability）
+      // 3) 从详情页链接提取内容（跳过首页提取，避免导航文本）
       const { parseHTML } = require('linkedom')
       const { Readability } = require('@mozilla/readability')
       let articleCount = 0
-
-      // 3a) 提取页面中的文本段落（优先于 Readability，适合列表类网站）
-      const paragraphs: string[] = []
-      $('p, li, td, .item, .title, .list-group-item, [class*=item], a[href*=".html"]').each((_: number, el: any) => {
-        const t = $(el).text().trim()
-        if (t.length > 15 && !paragraphs.includes(t)) paragraphs.push(t)
-      })
-      if (paragraphs.length > 3) {
-        const content = paragraphs.join('<br/><br/>')
-        db.prepare(
-          'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(feedId, siteUrl, feedName, siteUrl, content, new Date().toISOString())
-        articleCount++
-      }
-
-      // 3b) 尝试 Readability 提取（备选）
-      if (articleCount === 0) {
-        try {
-          const r = new Readability(parseHTML(html).window.document, { keepClasses: true })
-          const a = r.parse()
-          if (a && a.content && a.content.length > 200) {
-            db.prepare(
-              'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(feedId, siteUrl, a.title || feedName, siteUrl, a.content, new Date().toISOString())
-            articleCount++
-          }
-        } catch {}
-      }
-
-      // 3c) 尝试从发现的链接中提取前几个
       let linkIdx = 0
-      while (articleCount < 3 && linkIdx < Math.min(links.length, 10)) {
+
+      // 优先从发现的链接中提取详情页
+      while (articleCount < 5 && linkIdx < links.length) {
         try {
           const linkResp = await fetch(links[linkIdx], {
             headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow',
@@ -268,6 +240,20 @@ function registerIpcHandlers() {
           }
         } catch {}
         linkIdx++
+      }
+
+      // 如果没有提取到任何文章，尝试首页段落提取（兜底）
+      if (articleCount === 0) {
+        const fallbackTexts: string[] = []
+        $('p, li, td, .item, .title, .list-group-item, [class*=item], a[href*=".html"]').each((_: number, el: any) => {
+          const t = $(el).text().trim()
+          if (t.length > 15 && !fallbackTexts.includes(t)) fallbackTexts.push(t)
+        })
+        if (fallbackTexts.length > 3) {
+          db.prepare(
+            'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
+          ).run(feedId, siteUrl, feedName, siteUrl, fallbackTexts.join('<br/><br/>'), new Date().toISOString())
+        }
       }
 
       return { success: true, feedId, title: feedName }
