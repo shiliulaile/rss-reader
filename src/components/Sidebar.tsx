@@ -62,7 +62,10 @@ export default function Sidebar() {
 
   const handleExport = async () => {
     if (window.electronAPI) {
-      await window.electronAPI.opml.export()
+      const result = await window.electronAPI.opml.export()
+      if (result) {
+        useUIStore.getState().showToast('RSS 源已成功导出', 'success')
+      }
     }
   }
 
@@ -186,9 +189,9 @@ export default function Sidebar() {
               window.electronAPI.openExternal('https://gw67bure8m.feishu.cn/share/base/form/shrcnl43JwVbVN7gakTHFu3DA2g')
             }
           }}
-          className="sidebar-item w-full text-xs text-surface-400 hover:text-primary-500 transition-colors"
+          className="sidebar-item w-full text-sm font-medium text-orange-500 hover:text-orange-600 bg-orange-50 hover:bg-orange-100 transition-colors rounded-lg"
         >
-          <span className="text-left">🐛 BUG 反馈</span>
+          <span className="text-left font-semibold">🐛 BUG 反馈</span>
         </a>
       </div>
 
