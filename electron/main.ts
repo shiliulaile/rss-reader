@@ -206,36 +206,47 @@ function registerIpcHandlers() {
         }
       })
 
-      // 3) 从详情页链接提取内容（跳过首页提取，避免导航文本）
+      // 3) 过滤出详情页链接（跳过搜索/分类/标签页）
+      const articleLinks = links.filter(l => {
+        const path = new URL(l).pathname
+        // 只保留包含数字ID的页面（如 /xbhd/2709615.html）
+        return path.match(/\d{5,}/) || path.match(/\/[a-z]+\/\d+\.html/)
+      })
+      if (articleLinks.length === 0) articleLinks.push(...links) // 一个都没找到时用全部
+
+      // 4) 从详情页链接提取内容
       const { parseHTML } = require('linkedom')
       const { Readability } = require('@mozilla/readability')
       let articleCount = 0
       let linkIdx = 0
 
-      // 优先从发现的链接中提取详情页
-      while (articleCount < 5 && linkIdx < links.length) {
+      while (articleCount < 5 && linkIdx < articleLinks.length) {
         try {
-          const linkResp = await fetch(links[linkIdx], {
+          const linkResp = await fetch(articleLinks[linkIdx], {
             headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow',
           })
           const linkHtml = await linkResp.text()
+          // 优先 Readability（正文提取更干净），失败则段落提取
           const link$ = cheerio.load(linkHtml)
-          const linkPs: string[] = []
-          link$('p, li, td, .item, .title, .content').each((_: number, el: any) => {
-            const t = link$(el).text().trim()
-            if (t.length > 15) linkPs.push(t)
-          })
-          let linkContent = linkPs.join('<br/><br/>')
-          if (linkContent.length < 200) {
+          let linkContent = ''
+          try {
             const r2 = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
             const a2 = r2.parse()
             if (a2 && a2.content && a2.content.length > 200) linkContent = a2.content
+          } catch {}
+          if (!linkContent) {
+            const linkPs: string[] = []
+            link$('p, li, td, .item, .title, .content, .list-group-item').each((_: number, el: any) => {
+              const t = link$(el).text().trim()
+              if (t.length > 15) linkPs.push(t)
+            })
+            linkContent = linkPs.join('<br/><br/>')
           }
           if (linkContent.length > 200) {
-            const linkTitle = link$('title').text().trim() || links[linkIdx]
+            const linkTitle = link$('title').text().trim() || articleLinks[linkIdx]
             db.prepare(
               'INSERT INTO articles (feed_id, guid, title, url, content, published_at) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(feedId, links[linkIdx], linkTitle, links[linkIdx], linkContent, new Date().toISOString())
+            ).run(feedId, articleLinks[linkIdx], linkTitle, articleLinks[linkIdx], linkContent, new Date().toISOString())
             articleCount++
           }
         } catch {}
