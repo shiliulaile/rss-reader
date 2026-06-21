@@ -178,6 +178,18 @@ export default function Sidebar() {
           <Upload size={16} />
           <span className="text-left">导出 RSS 源</span>
         </button>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault()
+            if (window.electronAPI) {
+              window.electronAPI.openExternal('https://gw67bure8m.feishu.cn/share/base/form/shrcnl43JwVbVN7gakTHFu3DA2g')
+            }
+          }}
+          className="sidebar-item w-full text-xs text-surface-400 hover:text-primary-500 transition-colors"
+        >
+          <span className="text-left">🐛 BUG 反馈</span>
+        </a>
       </div>
 
       {/* 右键菜单 */}
