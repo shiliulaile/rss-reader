@@ -51,6 +51,28 @@ const api = {
     getVersion: () => ipcRenderer.invoke('settings:getVersion'),
   },
 
+  // 更新
+  update: {
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+  },
+
+  // 公告
+  announcement: {
+    get: () => ipcRenderer.invoke('announcement:get'),
+  },
+
+  // 更新事件监听
+  onUpdateAvailable: (cb: (info: any) => void) => {
+    ipcRenderer.on('update-available', (_e, info) => cb(info))
+  },
+  onUpdateProgress: (cb: (progress: any) => void) => {
+    ipcRenderer.on('download-progress', (_e, p) => cb(p))
+  },
+  onUpdateDownloaded: (cb: () => void) => {
+    ipcRenderer.on('update-downloaded', () => cb())
+  },
+
   // Shell
   openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   copyToClipboard: (text: string) => ipcRenderer.invoke('shell:copyToClipboard', text),

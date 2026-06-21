@@ -86,6 +86,16 @@ export declare global {
         getRefreshTime: () => Promise<{ nextRefresh: number; interval: number }>
         getVersion: () => Promise<string>
       }
+      update: {
+        download: () => Promise<boolean>
+        install: () => Promise<boolean>
+      }
+      announcement: {
+        get: () => Promise<{ text: string; link?: string } | null>
+      }
+      onUpdateAvailable: (cb: (info: any) => void) => void
+      onUpdateProgress: (cb: (progress: any) => void) => void
+      onUpdateDownloaded: (cb: () => void) => void
       openExternal: (url: string) => Promise<void>
       copyToClipboard: (text: string) => Promise<void>
     }

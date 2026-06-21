@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import path from 'path'
 import { getDatabase, closeDatabase } from './database'
 import Parser from 'rss-parser'
@@ -32,6 +33,18 @@ function createWindow() {
   // 页面加载后设置窗口标题（覆盖 HTML 中的 <title>）
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.setTitle('RSS Reader v' + appVersion)
+  })
+  // 自动更新
+  autoUpdater.autoDownload = false
+  autoUpdater.checkForUpdates()
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-available', info)
+  })
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update-progress', progress)
+  })
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('update-downloaded')
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   mainWindow.on('closed', () => { mainWindow = null })
@@ -834,6 +847,29 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:getVersion', () => {
     const pkg = require(path.join(__dirname, '../package.json'))
     return pkg.version || '1.0.0'
+  })
+
+  // ---- 热更新 ----
+  ipcMain.handle('update:download', () => {
+    autoUpdater.downloadUpdate()
+    return true
+  })
+  ipcMain.handle('update:install', () => {
+    autoUpdater.quitAndInstall()
+    return true
+  })
+
+  // ---- 公告栏（从远程 JSON 获取） ----
+  ipcMain.handle('announcement:get', async () => {
+    try {
+      const resp = await fetch('https://your-server.com/announcement.json', {
+        headers: { 'User-Agent': 'RSS-Reader/1.0' },
+        signal: AbortSignal.timeout(5000),
+      })
+      return await resp.json()
+    } catch {
+      return null
+    }
   })
 
   // ---- Open External / Clipboard ----

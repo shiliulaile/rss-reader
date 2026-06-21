@@ -8,11 +8,36 @@ import { Search, Star, Rss, PanelLeft, RefreshCw } from 'lucide-react'
 
 export default function App() {
   const [countdown, setCountdown] = useState('')
+  const [announcement, setAnnouncement] = useState<{ text: string; link?: string } | null>(null)
+  const [updateInfo, setUpdateInfo] = useState<any>(null)
+  const [updateProgress, setUpdateProgress] = useState(0)
+  const [downloading, setDownloading] = useState(false)
   const {
     view, setView, searchQuery, setSearchQuery,
     selectedArticleId, sidebarOpen, setSidebarOpen, selectArticle,
     toast, toastType,
   } = useUIStore()
+
+  // 获取公告
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.announcement.get().then(setAnnouncement)
+    }
+  }, [])
+
+  // 监听更新事件
+  useEffect(() => {
+    if (!window.electronAPI) return
+    window.electronAPI.onUpdateAvailable((info) => setUpdateInfo(info))
+    window.electronAPI.onUpdateProgress((p) => setUpdateProgress(p.percent || 0))
+    window.electronAPI.onUpdateDownloaded(() => {
+      setDownloading(false)
+      setUpdateInfo(null)
+      if (confirm('新版本已下载完成，是否立即重启安装？')) {
+        window.electronAPI?.update.install()
+      }
+    })
+  }, [])
 
   // 自动刷新倒计时
   useEffect(() => {
@@ -83,6 +108,41 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* 公告栏 */}
+      {announcement?.text && (
+        <div className="bg-primary-500 text-white text-center text-sm py-1.5 px-4 shrink-0 flex items-center justify-center gap-2">
+          <span>{announcement.text}</span>
+          {announcement.link && (
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); window.electronAPI?.openExternal(announcement.link!) }}
+              className="underline text-white/90 hover:text-white"
+            >查看详情</a>
+          )}
+          <button onClick={() => setAnnouncement(null)} className="text-white/70 hover:text-white ml-2">✕</button>
+        </div>
+      )}
+
+      {/* 更新提醒 */}
+      {updateInfo && !downloading && (
+        <div className="bg-orange-500 text-white text-center text-sm py-1.5 px-4 shrink-0 flex items-center justify-center gap-2">
+          <span>有新版本 {updateInfo.version} 可用</span>
+          <button
+            onClick={async () => {
+              setDownloading(true)
+              await window.electronAPI?.update.download()
+            }}
+            className="bg-white text-orange-600 px-3 py-0.5 rounded text-xs font-medium"
+          >立即更新</button>
+          <button onClick={() => setUpdateInfo(null)} className="text-white/70 hover:text-white ml-1">✕</button>
+        </div>
+      )}
+      {downloading && (
+        <div className="bg-orange-500 text-white text-center text-sm py-1.5 px-4 shrink-0">
+          正在下载更新... {updateProgress > 0 ? Math.round(updateProgress) + '%' : ''}
+        </div>
+      )}
 
       {/* Main Content - 两栏布局 */}
       <div className="flex flex-1 overflow-hidden">
