@@ -862,7 +862,7 @@ function registerIpcHandlers() {
   // ---- 公告栏（从远程 JSON 获取） ----
   ipcMain.handle('announcement:get', async () => {
     try {
-      const resp = await fetch('https://your-server.com/announcement.json', {
+      const resp = await fetch('https://raw.githubusercontent.com/shiliulaile/rss-reader/main/announcement.json', {
         headers: { 'User-Agent': 'RSS-Reader/1.0' },
         signal: AbortSignal.timeout(5000),
       })

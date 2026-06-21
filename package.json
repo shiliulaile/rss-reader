@@ -65,6 +65,11 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "shiliulaile",
+      "repo": "rss-reader"
+    },
     "win": {
       "target": "nsis"
     },
