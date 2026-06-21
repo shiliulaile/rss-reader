@@ -7,11 +7,13 @@ import fs from 'fs'
 
 const parser = new Parser({ timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } })
 
+const appVersion = require(path.join(__dirname, '../package.json')).version
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200, height: 800, minWidth: 800, minHeight: 600,
+    title: 'RSS Reader v' + appVersion,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     autoHideMenuBar: true,
     webPreferences: {
@@ -26,6 +28,11 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
+
+  // 页面加载后设置窗口标题（覆盖 HTML 中的 <title>）
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.setTitle('RSS Reader v' + appVersion)
+  })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   mainWindow.on('closed', () => { mainWindow = null })
 }

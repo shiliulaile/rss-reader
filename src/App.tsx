@@ -8,7 +8,6 @@ import { Search, Star, Rss, PanelLeft, RefreshCw } from 'lucide-react'
 
 export default function App() {
   const [countdown, setCountdown] = useState('')
-  const [appVersion, setAppVersion] = useState('')
   const {
     view, setView, searchQuery, setSearchQuery,
     selectedArticleId, sidebarOpen, setSidebarOpen, selectArticle,
@@ -34,13 +33,6 @@ export default function App() {
     return () => clearInterval(timer)
   }, [])
 
-  // 获取版本号
-  useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.settings.getVersion().then(setAppVersion)
-    }
-  }, [])
-
   return (
     <div className="h-screen flex flex-col bg-white text-surface-800">
       {/* Title Bar */}
@@ -56,7 +48,6 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Rss size={16} className="text-primary-500" />
             <span className="text-sm font-semibold">RSS Reader</span>
-            {appVersion && <span className="text-[10px] text-surface-400 font-mono">v{appVersion}</span>}
             {countdown && (
               <span className="flex items-center gap-1 text-[11px] text-surface-400 ml-2">
                 <RefreshCw size={11} />
