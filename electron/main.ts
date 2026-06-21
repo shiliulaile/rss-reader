@@ -226,14 +226,14 @@ function registerIpcHandlers() {
             headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow',
           })
           const linkHtml = await linkResp.text()
-          // 优先 Readability（正文提取更干净），失败则段落提取
           const link$ = cheerio.load(linkHtml)
           let linkContent = ''
-          try {
-            const r2 = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
-            const a2 = r2.parse()
-            if (a2 && a2.content && a2.content.length > 200) linkContent = a2.content
-          } catch {}
+          // 方法1：提取 post-content 容器的原始 HTML（保留链接和格式）
+          const postContent = link$('.post-content, .article-content, .entry-content, .content, article').first().html()
+          if (postContent && postContent.length > 100) {
+            linkContent = postContent
+          }
+          // 方法2：段落提取
           if (!linkContent) {
             const linkPs: string[] = []
             link$('p, li, td, .item, .title, .content, .list-group-item').each((_: number, el: any) => {
@@ -241,6 +241,14 @@ function registerIpcHandlers() {
               if (t.length > 15) linkPs.push(t)
             })
             linkContent = linkPs.join('<br/><br/>')
+          }
+          // 方法3：Readability 兜底
+          if (!linkContent || linkContent.length < 200) {
+            try {
+              const r2 = new Readability(parseHTML(linkHtml).window.document, { keepClasses: true })
+              const a2 = r2.parse()
+              if (a2 && a2.content && a2.content.length > 200) linkContent = a2.content
+            } catch {}
           }
           if (linkContent.length > 200) {
             const linkTitle = link$('title').text().trim() || articleLinks[linkIdx]
