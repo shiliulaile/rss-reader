@@ -824,6 +824,10 @@ function registerIpcHandlers() {
   ipcMain.handle('settings:getRefreshTime', () => {
     return { nextRefresh: nextRefreshTime, interval: AUTO_REFRESH_INTERVAL }
   })
+  ipcMain.handle('settings:getVersion', () => {
+    const pkg = require(path.join(__dirname, '../package.json'))
+    return pkg.version || '1.0.0'
+  })
 
   // ---- Open External / Clipboard ----
   ipcMain.handle('shell:openExternal', (_e, url) => {

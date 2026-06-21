@@ -1,6 +1,6 @@
 {
   "name": "rss-reader",
-  "version": "1.0.0",
+  "version": "1.8.0",
   "description": "A modern RSS reader desktop application",
   "main": "dist-electron/main.js",
   "scripts": {

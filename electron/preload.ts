@@ -48,6 +48,7 @@ const api = {
     get: (key: string) => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
     getRefreshTime: () => ipcRenderer.invoke('settings:getRefreshTime'),
+    getVersion: () => ipcRenderer.invoke('settings:getVersion'),
   },
 
   // Shell
