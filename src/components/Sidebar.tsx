@@ -7,6 +7,8 @@ export default function Sidebar() {
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const [menuFeed, setMenuFeed] = useState<Feed | null>(null)
   const { view, selectedFeedId, selectedCategoryId, selectFeed, selectCategory, setView, setShowAddFeedDialog, feedListVersion } = useUIStore()
 
   const loadData = async () => {
@@ -119,6 +121,11 @@ export default function Sidebar() {
           <button
             key={feed.id}
             onClick={() => selectFeed(feed.id)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenuPos({ x: e.clientX, y: e.clientY })
+              setMenuFeed(feed)
+            }}
             className={`sidebar-item w-full group ${selectedFeedId === feed.id ? 'active' : ''}`}
           >
             {feed.icon_url ? (
@@ -172,6 +179,63 @@ export default function Sidebar() {
           <span className="text-left">导出 RSS 源</span>
         </button>
       </div>
+
+      {/* 右键菜单 */}
+      {menuPos && menuFeed && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => { setMenuPos(null); setMenuFeed(null) }}
+          onContextMenu={(e) => { e.preventDefault(); setMenuPos(null); setMenuFeed(null) }}
+        >
+          <div
+            className="absolute bg-white rounded-lg shadow-xl border border-surface-200 py-1 w-52 text-sm"
+            style={{ left: menuPos.x, top: menuPos.y }}
+          >
+            <button
+              onClick={async () => {
+                if (menuFeed?.url && window.electronAPI) {
+                  await window.electronAPI.copyToClipboard(menuFeed.url)
+                }
+                setMenuPos(null); setMenuFeed(null)
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-surface-700 transition-colors"
+            >
+              复制 RSS 源地址
+            </button>
+            <button
+              onClick={() => {
+                selectFeed(menuFeed.id)
+                setMenuPos(null); setMenuFeed(null)
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-surface-700 transition-colors"
+            >
+              查看内容
+            </button>
+            <div className="border-t border-surface-100 my-1" />
+            <button
+              onClick={async () => {
+                if (window.electronAPI) {
+                  await window.electronAPI.feeds.refresh(menuFeed.id)
+                  await loadData()
+                }
+                setMenuPos(null); setMenuFeed(null)
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-surface-700 transition-colors"
+            >
+              刷新
+            </button>
+            <button
+              onClick={(e) => {
+                handleRemoveFeed(e as any, menuFeed.id)
+                setMenuPos(null); setMenuFeed(null)
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 transition-colors"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
