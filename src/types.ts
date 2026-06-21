@@ -86,6 +86,7 @@ export declare global {
         getRefreshTime: () => Promise<{ nextRefresh: number; interval: number }>
       }
       openExternal: (url: string) => Promise<void>
+      copyToClipboard: (text: string) => Promise<void>
     }
   }
 }

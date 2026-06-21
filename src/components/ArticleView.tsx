@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useUIStore } from '../store/uiStore'
 import type { Article } from '../types'
 import { Star, ExternalLink, ChevronLeft, Loader2 } from 'lucide-react'
@@ -6,6 +6,7 @@ import { Star, ExternalLink, ChevronLeft, Loader2 } from 'lucide-react'
 export default function ArticleView() {
   const [article, setArticle] = useState<Article | null>(null)
   const [loading, setLoading] = useState(true)
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   const { selectedArticleId, selectArticle } = useUIStore()
 
   useEffect(() => {
@@ -29,6 +30,25 @@ export default function ArticleView() {
   const handleOpenExternal = () => {
     if (article?.url && window.electronAPI) {
       window.electronAPI.openExternal(article.url)
+    }
+  }
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setMenuPos({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleCopyUrl = async () => {
+    if (article?.url && window.electronAPI) {
+      await window.electronAPI.copyToClipboard(article.url)
+      setMenuPos(null)
+    }
+  }
+
+  const handleCopyTitle = async () => {
+    if (article?.title && window.electronAPI) {
+      await window.electronAPI.copyToClipboard(article.title)
+      setMenuPos(null)
     }
   }
 
@@ -84,7 +104,7 @@ export default function ArticleView() {
       </div>
 
       {/* 文章内容 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" onContextMenu={handleContextMenu}>
         <div className="article-content max-w-3xl mx-auto px-8 py-6">
           {/* 来源 + 时间 */}
           <div className="flex items-center gap-2 text-xs text-surface-400 mb-3">
@@ -132,6 +152,40 @@ export default function ArticleView() {
           )}
         </div>
       </div>
+
+      {/* 右键菜单 */}
+      {menuPos && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => setMenuPos(null)}
+          onContextMenu={(e) => { e.preventDefault(); setMenuPos(null); }}
+        >
+          <div
+            className="absolute bg-white rounded-lg shadow-xl border border-surface-200 py-1 w-48 text-sm z-50"
+            style={{ left: menuPos.x, top: menuPos.y }}
+          >
+            <button
+              onClick={handleCopyUrl}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-surface-700 transition-colors"
+            >
+              复制链接
+            </button>
+            <button
+              onClick={handleCopyTitle}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-surface-700 transition-colors"
+            >
+              复制标题
+            </button>
+            <div className="border-t border-surface-100 my-1" />
+            <button
+              onClick={() => { handleOpenExternal(); setMenuPos(null); }}
+              className="w-full text-left px-4 py-2 hover:bg-surface-100 text-primary-600 transition-colors"
+            >
+              在浏览器中打开
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

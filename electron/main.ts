@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard } from 'electron'
 import path from 'path'
 import { getDatabase, closeDatabase } from './database'
 import Parser from 'rss-parser'
@@ -824,8 +824,11 @@ function registerIpcHandlers() {
     return { nextRefresh: nextRefreshTime, interval: AUTO_REFRESH_INTERVAL }
   })
 
-  // ---- Open External ----
+  // ---- Open External / Clipboard ----
   ipcMain.handle('shell:openExternal', (_e, url) => {
     shell.openExternal(url)
+  })
+  ipcMain.handle('shell:copyToClipboard', (_e, text) => {
+    clipboard.writeText(text)
   })
 }

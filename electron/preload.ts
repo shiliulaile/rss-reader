@@ -52,6 +52,7 @@ const api = {
 
   // Shell
   openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  copyToClipboard: (text: string) => ipcRenderer.invoke('shell:copyToClipboard', text),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
